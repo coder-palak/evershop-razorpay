@@ -1,8 +1,9 @@
 {
   "name": "evershop-razorpay",
-  "version": "1.0.4",
-  "description": "Extension for Evershop",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "Razorpay payment integration for EverShop 2.0.1+",
+  "type": "module",
+  "main": "razorpay/bootstrap.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -17,8 +18,10 @@
   },
   "homepage": "https://github.com/coder-palak/evershop-razorpay#readme",
   "dependencies": {
-    "razorpay": "^2.8.6",
-    "react-razorpay": "^1.2.0"
+    "razorpay": "^2.9.0"
   },
-  "keywords":["evershop", "razorpay"]
+  "peerDependencies": {
+    "@evershop/evershop": ">=2.0.1"
+  },
+  "keywords": ["evershop", "razorpay", "payment-gateway", "india", "upi"]
 }

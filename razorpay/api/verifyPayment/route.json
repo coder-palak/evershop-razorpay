@@ -1,6 +1,4 @@
 {
-    "methods": ["POST"],
-    "path": "/razorpay/order/verify",
-    "access": "public"
-  }
-  
+  "methods": ["POST"],
+  "path": "/api/razorpay/verifyPayment"
+}

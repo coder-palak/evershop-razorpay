@@ -1,80 +1,45 @@
-const { getConfig } = require('@evershop/evershop/src/lib/util/getConfig');
+import { select } from '@evershop/postgres-query-builder';
+import { pool } from '@evershop/evershop/lib/postgres';
 
-module.exports = {
+async function getSetting(name, defaultValue) {
+  const setting = await select()
+    .from('setting')
+    .where('name', '=', name)
+    .load(pool);
+  
+  return setting ? setting.value : defaultValue;
+}
+
+export default {
   Setting: {
-    razorpayPaymentStatus: (setting) => {
-      const razorpayConfig = getConfig('system.razorpay', {});
-      if (razorpayConfig.status) {
-        return razorpayConfig.status;
-      }
-      const razorpayPaymentStatus = setting.find(
-        (s) => s.name === 'razorpayPaymentStatus'
-      );
-      if (razorpayPaymentStatus) {
-        return parseInt(razorpayPaymentStatus.value, 10);
-      } else {
-        return 0;
-      }
+    razorpayPaymentStatus: async () => {
+      console.log('🟢 RAZORPAY RESOLVER: razorpayPaymentStatus called');
+      const value = parseInt(await getSetting('razorpayPaymentStatus', '0'), 10);
+      console.log('🟢 RAZORPAY RESOLVER: razorpayPaymentStatus =', value);
+      return value;
     },
-    razorpayDislayName: (setting) => {
-      const razorpayDislayName = setting.find(
-        (s) => s.name === 'razorpayDislayName'
-      );
-      if (razorpayDislayName) {
-        return razorpayDislayName.value;
-      } else {
-        return 'Credit Card';
-      }
+    razorpayDisplayName: async () => {
+      console.log('🟢 RAZORPAY RESOLVER: razorpayDisplayName called');
+      const value = await getSetting('razorpayDisplayName', 'Razorpay');
+      console.log('🟢 RAZORPAY RESOLVER: razorpayDisplayName =', value);
+      return value;
     },
-    razorpayPublishableKey: (setting) => {
-      const razorpayConfig = getConfig('system.razorpay', {});
-      if (razorpayConfig.publishableKey) {
-        return razorpayConfig.publishableKey;
-      }
-      const razorpayPublishableKey = setting.find(
-        (s) => s.name === 'razorpayPublishableKey'
-      );
-      if (razorpayPublishableKey) {
-        return razorpayPublishableKey.value;
-      } else {
-        return null;
-      }
+    razorpayKeyId: async () => {
+      console.log('🟢 RAZORPAY RESOLVER: razorpayKeyId called');
+      const value = await getSetting('razorpayKeyId', '');
+      console.log('🟢 RAZORPAY RESOLVER: razorpayKeyId =', value);
+      return value;
     },
-    razorpaySecretKey: (setting, _, { userTokenPayload }) => {
-      const razorpayConfig = getConfig('system.razorpay', {});
-      if (razorpayConfig.secretKey) {
-        return '*******************************';
-      }
+    razorpayKeySecret: async (_, __, { userTokenPayload }) => {
+      console.log('🟢 RAZORPAY RESOLVER: razorpayKeySecret called');
+      // Only return the key to authenticated admin users
       if (userTokenPayload && userTokenPayload?.user?.uuid) {
-        const razorpaySecretKey = setting.find(
-          (s) => s.name === 'razorpaySecretKey'
-        );
-        if (razorpaySecretKey) {
-          return razorpaySecretKey.value;
-        } else {
-          return null;
-        }
-      } else {
-        return null;
+        const value = await getSetting('razorpayKeySecret', '');
+        console.log('🟢 RAZORPAY RESOLVER: razorpayKeySecret =', value);
+        return value;
       }
-    },
-    razorpayEndpointSecret: (setting, _, { userTokenPayload }) => {
-      const razorpayConfig = getConfig('system.razorpay', {});
-      if (razorpayConfig.endpointSecret) {
-        return '*******************************';
-      }
-      if (userTokenPayload && userTokenPayload?.user?.uuid) {
-        const razorpayEndpointSecret = setting.find(
-          (s) => s.name === 'razorpayEndpointSecret'
-        );
-        if (razorpayEndpointSecret) {
-          return razorpayEndpointSecret.value;
-        } else {
-          return null;
-        }
-      } else {
-        return null;
-      }
+      console.log('🟢 RAZORPAY RESOLVER: razorpayKeySecret = null (not authenticated)');
+      return null;
     }
   }
 };

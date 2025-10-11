@@ -1,29 +1,33 @@
-const { addProcessor } = require('@evershop/evershop/src/lib/util/registry');
-const { getSetting } = require('@evershop/evershop/src/modules/setting/services/setting');
+import { registerPaymentMethod } from '../checkout/services/getAvailablePaymentMethos.js';
+import { getSetting } from '../setting/services/setting.js';
 
-  module.exports = () => {
-    addProcessor('cartFields', (fields) => {
-      fields.push({
-        key: 'payment_method',
-        resolvers: [
-          async function resolver(paymentMethod) {
-            // Do nothing if the payment method is not paypal
-            if (paymentMethod !== 'paypal') {
-              return paymentMethod;
-            } else {
-              // Validate the payment method
-              const paypalStatus = await getSetting('paypalPaymentStatus');
-              if (parseInt(paypalStatus, 10) !== 1) {
-                return null;
-              } else {
-                this.setError('payment_method', undefined);
-                return paymentMethod;
-              }
-            }
-          }
-        ]
-      });
-      return fields;
-    });
-  };
+export default async () => {
+  console.log('🔵 RAZORPAY BOOTSTRAP: Starting...');
   
+  try {
+    // Register Razorpay as a payment method
+    registerPaymentMethod({
+      init: async () => {
+        console.log('🔵 RAZORPAY: init() called');
+        const displayName = await getSetting('razorpayDisplayName', 'Razorpay');
+        console.log('🔵 RAZORPAY: Display name:', displayName);
+        return {
+          methodCode: 'razorpay',
+          methodName: displayName
+        };
+      },
+      validator: async () => {
+        console.log('🔵 RAZORPAY: validator() called');
+        const razorpayStatus = await getSetting('razorpayPaymentStatus', 0);
+        console.log('🔵 RAZORPAY: Status:', razorpayStatus);
+        const isEnabled = parseInt(razorpayStatus, 10) === 1;
+        console.log('🔵 RAZORPAY: Is enabled:', isEnabled);
+        return isEnabled;
+      }
+    });
+    
+    console.log('🔵 RAZORPAY BOOTSTRAP: Completed successfully');
+  } catch (error) {
+    console.error('❌ RAZORPAY BOOTSTRAP ERROR:', error);
+  }
+};

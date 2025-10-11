@@ -1,24 +1,89 @@
-const { getConfig } = require('@evershop/evershop/src/lib/util/getConfig');
-const { getSetting } = require('@evershop/evershop/src/modules/setting/services/setting');
+import crypto from 'crypto';
+import { update, select } from '@evershop/postgres-query-builder';
+import { pool } from '@evershop/evershop/lib/postgres';
 
-// eslint-disable-next-line no-unused-vars
-const crypto = require('crypto');
-const { OK } = require('@evershop/evershop/src/lib/util/httpStatus');
-module.exports = async (request, response) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-    request.body;
-  const razorpayConfig = getConfig('system.razorpay', {});
-  let secretKey;
-  if (razorpayConfig.secretKey) {
-    secretKey = razorpayConfig.secretKey;
-  } else {
-    secretKey = await getSetting('razorpaySecretKey', '');
+async function getSetting(name, defaultValue) {
+  const setting = await select()
+    .from('setting')
+    .where('name', '=', name)
+    .load(pool);
+  
+  return setting ? setting.value : defaultValue;
+}
+
+export default async (request, response) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      orderId
+    } = request.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !orderId) {
+      return response.status(400).json({
+        success: false,
+        message: 'Missing required payment details'
+      });
+    }
+
+    // Get Razorpay key secret
+    const keySecret = await getSetting('razorpayKeySecret', '');
+
+    if (!keySecret) {
+      return response.status(500).json({
+        success: false,
+        message: 'Razorpay is not configured properly'
+      });
+    }
+
+    // Verify signature
+    const body = razorpay_order_id + '|' + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(body.toString())
+      .digest('hex');
+
+    const isValid = expectedSignature === razorpay_signature;
+
+    if (!isValid) {
+      return response.status(400).json({
+        success: false,
+        message: 'Invalid payment signature'
+      });
+    }
+
+    // Update order payment status
+    await update('order')
+      .given({
+        payment_status: 'paid',
+        payment_method: 'razorpay',
+        razorpay_order_id: razorpay_order_id,
+        razorpay_payment_id: razorpay_payment_id
+      })
+      .where('uuid', '=', orderId)
+      .execute(pool);
+
+    // Get updated order
+    const order = await select()
+      .from('order')
+      .where('uuid', '=', orderId)
+      .load(pool);
+
+    return response.json({
+      success: true,
+      message: 'Payment verified successfully',
+      order: {
+        id: order.uuid,
+        orderNumber: order.order_number,
+        paymentStatus: order.payment_status
+      }
+    });
+  } catch (error) {
+    console.error('Razorpay payment verification error:', error);
+    return response.status(500).json({
+      success: false,
+      message: error.message || 'Failed to verify payment'
+    });
   }
-  const signature = razorpay_order_id + '|' + razorpay_payment_id;
-  const expectedSignature = crypto
-    .createHmac('sha256', secretKey)
-    .update(signature.toString())
-    .digest('hex');
-  const isAuthentic = expectedSignature === razorpay_signature;
-  response.status(OK).json({ isPaymentVerified: isAuthentic });
 };
